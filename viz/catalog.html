@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DeLillo — correspondents catalog</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #14161d; --line: #23252e; --line2: #1b1d25;
+    --txt: #c8c8d2; --dim: #6a6a78; --dim2: #565663; --white: #fff;
+    --accent: #6e9ff3; --found: #7fb2e8; --inferred: #c98fd6;
+    --lc: #7fd6a8; --wd: #e8c27f; --snac: #7fb2e8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  body { display: flex; height: 100vh; overflow: hidden; font-size: 13px; }
+
+  /* ---- left panel ---- */
+  #panel { width: 270px; flex-shrink: 0; padding: 18px 18px 24px;
+    background: var(--panel); border-right: 1px solid var(--line);
+    height: 100vh; overflow-y: auto; }
+  h1 { font-size: 14px; margin: 0 0 2px; color: var(--white); }
+  .sub { font-size: 10px; color: var(--dim); margin-bottom: 16px; line-height: 1.5; }
+  .sub a { color: var(--accent); text-decoration: none; }
+  .sec { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--dim2); margin: 18px 0 8px; }
+  #search { width: 100%; padding: 8px 10px; background: #0c0e13; color: var(--txt);
+    border: 1px solid var(--line); border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 12px;
+    color: var(--txt); cursor: pointer; margin-bottom: 8px; }
+  .toggle input { accent-color: var(--accent); }
+  .cnt { color: var(--dim2); font-variant-numeric: tabular-nums; margin-left: auto; }
+  #stat { font-size: 10px; color: var(--dim2); margin-top: 22px; line-height: 1.8;
+    font-variant-numeric: tabular-nums; }
+  #stat b { color: var(--txt); font-weight: 500; }
+
+  /* ---- table ---- */
+  #main { flex: 1; overflow-y: auto; position: relative; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { position: sticky; top: 0; z-index: 2; background: #0c0e13;
+    text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--dim2); font-weight: 600; padding: 10px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--line); white-space: nowrap; user-select: none; }
+  thead th:hover { color: var(--txt); }
+  thead th .arr { color: var(--accent); }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--line2);
+    vertical-align: top; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #181a22; }
+  .name { color: var(--white); font-weight: 500; }
+  .sortn { color: var(--dim); font-size: 11px; }
+  .roles { color: var(--txt); }
+  .pill { display: inline-block; font-size: 9px; letter-spacing: .4px; padding: 1px 6px;
+    border-radius: 4px; margin-right: 4px; text-transform: uppercase; }
+  .id-snac { background: rgba(127,178,232,.15); color: var(--snac); }
+  .id-lc   { background: rgba(127,214,168,.15); color: var(--lc); }
+  .id-wd   { background: rgba(232,194,127,.15); color: var(--wd); }
+  .review  { background: rgba(232,127,127,.15); color: #e88; }
+  .num { font-variant-numeric: tabular-nums; color: var(--dim); text-align: right; }
+  .sub-tag { font-size: 10px; color: var(--dim); }
+
+  /* ---- detail drawer ---- */
+  #drawer { position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+    background: var(--panel); border-left: 1px solid var(--line); padding: 24px 24px 40px;
+    overflow-y: auto; transform: translateX(100%); transition: transform .18s ease;
+    box-shadow: -8px 0 30px rgba(0,0,0,.4); z-index: 10; }
+  #drawer.open { transform: translateX(0); }
+  #drawer h2 { font-size: 18px; color: var(--white); margin: 0 0 2px; }
+  #drawer .ds { font-size: 12px; color: var(--dim); margin-bottom: 18px; }
+  #drawer .row { display: flex; gap: 10px; font-size: 12px; margin-bottom: 7px;
+    line-height: 1.5; }
+  #drawer .k { color: var(--dim2); width: 84px; flex-shrink: 0;
+    text-transform: uppercase; font-size: 9px; letter-spacing: .8px; padding-top: 2px; }
+  #drawer .v { color: var(--txt); }
+  #drawer .v a { color: var(--accent); text-decoration: none; }
+  #drawer .biog { font-size: 12px; color: #aab; line-height: 1.6; margin-top: 16px;
+    padding-top: 16px; border-top: 1px solid var(--line); }
+  #close { position: absolute; top: 16px; right: 18px; color: var(--dim2);
+    font-size: 20px; cursor: pointer; line-height: 1; }
+  #close:hover { color: var(--white); }
+  #err { padding: 40px; color: #e88; font-size: 13px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>DeLillo — corresondents catalog</h1>
+  <div class="sub">Every correspondent in the HRC archive — the documentary record.
+    The isolated/unidentified tail lives here as rows, not graph nodes.
+    <a href="network.html">network →</a></div>
+
+  <div class="sec">Search</div>
+  <input id="search" type="text" placeholder="name…" autocomplete="off">
+
+  <div class="sec">Filter</div>
+  <label class="toggle"><input type="checkbox" id="f-ident"> Identified only
+    <span class="cnt" id="c-ident"></span></label>
+  <label class="toggle"><input type="checkbox" id="f-roles"> Has role
+    <span class="cnt" id="c-roles"></span></label>
+  <label class="toggle"><input type="checkbox" id="f-review"> Needs review
+    <span class="cnt" id="c-review"></span></label>
+  <label class="toggle"><input type="checkbox" id="f-net"> In network
+    <span class="cnt" id="c-net"></span></label>
+
+  <div class="sec">Subseries</div>
+  <div id="subfilters"></div>
+
+  <div id="stat"></div>
+</div>
+
+<div id="main"><div id="err" style="display:none"></div>
+  <table id="tbl">
+    <thead><tr>
+      <th data-k="display_name">Name</th>
+      <th data-k="role">Role</th>
+      <th data-k="ids">IDs</th>
+      <th data-k="box_count" class="num">Boxes</th>
+      <th data-k="subseries">Subseries</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<div id="drawer"><div id="close">×</div><div id="dbody"></div></div>
+
+<script>
+const SUB_LABEL = {
+  professional_or_fan: "professional / fan",
+  works_editorial: "works · editorial",
+  alphabetical_assorted: "alphabetical (assorted)",
+  alphabetical_named: "alphabetical (named)",
+  career_related: "career-related",
+  publications: "publications",
+};
+let DATA = [], view = [], sortK = "display_name", sortDir = 1;
+const F = { q: "", ident: false, roles: false, review: false, net: false, subs: new Set() };
+
+function arkUrl(a){ return a; }
+function idPills(r){
+  const p = [];
+  if (r.identifiers.snac_ark) p.push('<span class="pill id-snac">snac</span>');
+  if (r.identifiers.lc)       p.push('<span class="pill id-lc">lc</span>');
+  if (r.identifiers.wikidata) p.push('<span class="pill id-wd">wd</span>');
+  if (r.review_needed)        p.push('<span class="pill review">review</span>');
+  return p.join("");
+}
+function sortVal(r){
+  if (sortK === "role") return (r.roles[0] || "~");
+  if (sortK === "ids") return r.identified ? 0 : 1;
+  if (sortK === "box_count") return r.hrc.box_count;
+  if (sortK === "subseries") return r.hrc.subseries[0] || "";
+  return r.sort_name.toLowerCase();   // display_name col sorts by authoritative form
+}
+
+function applyFilters(){
+  const q = F.q.toLowerCase();
+  view = DATA.filter(r => {
+    if (q && !(r.display_name.toLowerCase().includes(q) || r.sort_name.toLowerCase().includes(q))) return false;
+    if (F.ident && !r.identified) return false;
+    if (F.roles && !r.roles.length) return false;
+    if (F.review && !r.review_needed) return false;
+    if (F.net && !r.in_network) return false;
+    if (F.subs.size && !r.hrc.subseries.some(s => F.subs.has(s))) return false;
+    return true;
+  });
+  view.sort((a,b) => {
+    const x = sortVal(a), y = sortVal(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+  });
+  render();
+}
+
+function render(){
+  const tb = document.getElementById("rows");
+  tb.innerHTML = view.map((r,i) => `
+    <tr data-i="${i}">
+      <td><div class="name">${esc(r.display_name)}</div>
+          ${r.display_name !== r.sort_name ? `<div class="sortn">${esc(r.sort_name)}</div>` : ""}</td>
+      <td class="roles">${r.roles.map(esc).join(", ")}</td>
+      <td>${idPills(r)}</td>
+      <td class="num">${r.hrc.box_count}</td>
+      <td class="sub-tag">${SUB_LABEL[r.hrc.subseries[0]] || r.hrc.subseries[0] || ""}</td>
+    </tr>`).join("");
+  document.getElementById("stat").innerHTML =
+    `<b>${view.length}</b> of <b>${DATA.length}</b> shown`;
+}
+
+function openDrawer(r){
+  const ids = r.identifiers;
+  const idLinks = [];
+  if (ids.snac_ark) idLinks.push(`<a href="${ids.snac_ark}" target="_blank">SNAC</a>`);
+  if (ids.wikidata) idLinks.push(`<a href="https://www.wikidata.org/wiki/${ids.wikidata}" target="_blank">${ids.wikidata}</a>`);
+  if (ids.lc) idLinks.push(`<a href="https://lccn.loc.gov/${ids.lc}" target="_blank">LC ${ids.lc}</a>`);
+  const life = [r.life.birth, r.life.death].some(x => x != null)
+    ? `${r.life.birth ?? "?"}–${r.life.death ?? ""}` : "";
+  const aff = r.affiliations.map(a => `${esc(a.name)} <span class="sub-tag">(${a.kind})</span>`).join("<br>");
+  const rows = [];
+  const add = (k,v) => { if (v) rows.push(`<div class="row"><div class="k">${k}</div><div class="v">${v}</div></div>`); };
+  add("Sort name", esc(r.sort_name));
+  add("Life", life);
+  add("Roles", r.roles.map(esc).join(", "));
+  add("IDs", idLinks.join(" · "));
+  add("Affiliations", aff);
+  add("HRC", `${r.hrc.box_count} box(es), ${r.hrc.folder_count} folder(s)<br><span class="sub-tag">${esc(r.hrc.containers.join(", "))}</span>`);
+  const corr = r.hrc.first_date
+    ? `${esc(r.hrc.first_date)}–${esc(r.hrc.last_date)} <span class="sub-tag">(dated correspondence folders)</span>` : "";
+  add("Correspondence", corr);
+  add("Subseries", r.hrc.subseries.map(s => SUB_LABEL[s] || s).join(", "));
+  if (r.in_network) add("Network", `<a href="network.html?id=${encodeURIComponent(r.id)}">view in network →</a>`);
+  const desc = r.description ? `<div class="biog">${esc(r.description)}</div>` : "";
+  const biog = r.biog_hist ? `<div class="biog">${esc(r.biog_hist)}</div>` : "";
+  document.getElementById("dbody").innerHTML =
+    `<h2>${esc(r.display_name)}</h2><div class="ds">${r.identified ? "identified" : "unidentified"}${r.review_needed ? " · flagged for review" : ""}</div>${rows.join("")}${desc}${biog}`;
+  document.getElementById("drawer").classList.add("open");
+}
+
+function esc(s){ return (s ?? "").toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---- wiring ----
+document.getElementById("search").addEventListener("input", e => { F.q = e.target.value; applyFilters(); });
+document.getElementById("f-ident").addEventListener("change", e => { F.ident = e.target.checked; applyFilters(); });
+document.getElementById("f-roles").addEventListener("change", e => { F.roles = e.target.checked; applyFilters(); });
+document.getElementById("f-review").addEventListener("change", e => { F.review = e.target.checked; applyFilters(); });
+document.getElementById("f-net").addEventListener("change", e => { F.net = e.target.checked; applyFilters(); });
+document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => {
+  const k = th.dataset.k;
+  if (sortK === k) sortDir *= -1; else { sortK = k; sortDir = 1; }
+  document.querySelectorAll("thead th").forEach(t => t.querySelector(".arr")?.remove());
+  th.insertAdjacentHTML("beforeend", ` <span class="arr">${sortDir>0?"▾":"▴"}</span>`);
+  applyFilters();
+}));
+document.getElementById("rows").addEventListener("click", e => {
+  const tr = e.target.closest("tr"); if (!tr) return;
+  openDrawer(view[+tr.dataset.i]);
+});
+document.getElementById("close").addEventListener("click", () => document.getElementById("drawer").classList.remove("open"));
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("drawer").classList.remove("open"); });
+
+// ---- load ----
+fetch("../data/build/catalog.json")
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => {
+    DATA = d;
+    const by = (f) => DATA.filter(f).length;
+    document.getElementById("c-ident").textContent = by(r => r.identified);
+    document.getElementById("c-roles").textContent = by(r => r.roles.length);
+    document.getElementById("c-review").textContent = by(r => r.review_needed);
+    document.getElementById("c-net").textContent = by(r => r.in_network);
+    // subseries filters, by frequency
+    const counts = {};
+    DATA.forEach(r => r.hrc.subseries.forEach(s => counts[s] = (counts[s]||0)+1));
+    document.getElementById("subfilters").innerHTML = Object.entries(counts)
+      .sort((a,b) => b[1]-a[1])
+      .map(([s,n]) => `<label class="toggle"><input type="checkbox" data-sub="${s}">
+        ${SUB_LABEL[s]||s} <span class="cnt">${n}</span></label>`).join("");
+    document.querySelectorAll("[data-sub]").forEach(cb => cb.addEventListener("change", e => {
+      e.target.checked ? F.subs.add(e.target.dataset.sub) : F.subs.delete(e.target.dataset.sub);
+      applyFilters();
+    }));
+    applyFilters();
+    // deep link from the network view: catalog.html?id=<slug>
+    const want = new URLSearchParams(location.search).get("id");
+    if (want) { const r = DATA.find(r => r.id === want); if (r) openDrawer(r); }
+  })
+  .catch(err => {
+    document.getElementById("err").style.display = "block";
+    document.getElementById("err").innerHTML =
+      `Could not load <code>data/build/catalog.json</code> (${err.message}).<br><br>
+       Build it: <code>PYTHONPATH=src uv run python -m delillo.catalog</code><br>
+       Serve from the repo root: <code>python -m http.server 8000</code><br>
+       then open <code>/viz/catalog.html</code>.`;
+  });
+</script>
+</body>
+</html>

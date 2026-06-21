@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DeLillo — correspondents network</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #14161d; --line: #23252e; --line2: #1b1d25;
+    --txt: #c8c8d2; --dim: #6a6a78; --dim2: #565663; --white: #fff;
+    --accent: #6e9ff3; --found: #7fb2e8; --inferred: #c98fd6; --lc: #7fd6a8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden; font-size: 13px; }
+  #canvas { display: block; cursor: grab; }
+  #canvas:active { cursor: grabbing; }
+
+  .lk { stroke-linecap: round; pointer-events: none; }
+  .wk { stroke: var(--lc); stroke-width: 1.7; stroke-dasharray: 5 3;
+    stroke-opacity: .75; stroke-linecap: round; pointer-events: none; }
+  .lin { stroke: var(--lc); stroke-width: 1.1; stroke-dasharray: 1.5 3.5;
+    stroke-linecap: round; pointer-events: none; }  /* opacity set per-edge by gap */
+  .nd { cursor: pointer; stroke: #0f1117; stroke-width: 1; }
+  .nd.sel { stroke: #fff; stroke-width: 1.6; }
+  .lbl { fill: #b9b9c4; pointer-events: none;
+    text-shadow: 0 0 4px #0f1117, 0 0 4px #0f1117, 0 0 6px #0f1117; }
+  .dimmed { opacity: 0.08; transition: opacity .12s; }
+
+  /* ---- floating left panel ---- */
+  #panel { position: absolute; top: 0; left: 0; width: 270px; padding: 18px 18px 24px;
+    background: rgba(20,22,29,0.93); border-right: 1px solid var(--line);
+    height: 100vh; overflow-y: auto; backdrop-filter: blur(3px); }
+  h1 { font-size: 14px; margin: 0 0 2px; color: var(--white); }
+  .sub { font-size: 10px; color: var(--dim); margin-bottom: 14px; line-height: 1.5; }
+  .sub a, .v a { color: var(--accent); text-decoration: none; }
+  .sec { font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--dim2); margin: 16px 0 8px; }
+  #search { width: 100%; padding: 8px 10px; background: #0c0e13; color: var(--txt);
+    border: 1px solid var(--line); border-radius: 6px; font-size: 13px; outline: none; }
+  #search:focus { border-color: var(--accent); }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 12px;
+    color: var(--txt); cursor: pointer; margin-bottom: 7px; }
+  .toggle input { accent-color: var(--accent); }
+  .hint { font-size: 10px; color: var(--dim2); line-height: 1.5; margin-top: 4px; }
+  .legend-row { display: flex; align-items: baseline; gap: 7px; font-size: 11px;
+    color: #b6b6c2; margin-bottom: 5px; line-height: 1.3; cursor: pointer; }
+  .legend-row:hover { color: var(--white); }
+  .legend-row.off { opacity: .32; }
+  .legend-row.on { color: var(--white); }
+  .legend-row.on .n { color: var(--txt); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    position: relative; top: 1px; }
+  #viewall { margin-top: 9px; width: 100%; padding: 6px 10px; font-size: 11px;
+    background: #0c0e13; color: var(--txt); border: 1px solid var(--line);
+    border-radius: 6px; cursor: pointer; transition: border-color .12s, color .12s; }
+  #viewall:hover:not(:disabled) { border-color: var(--accent); color: var(--white); }
+  #viewall:disabled { opacity: .4; cursor: default; }
+  .legend-row .n { color: var(--dim2); font-variant-numeric: tabular-nums; }
+  .legend-row .via { color: var(--dim); font-size: 10px; }
+  #stat { font-size: 10px; color: var(--dim2); margin-top: 18px; line-height: 1.8;
+    font-variant-numeric: tabular-nums; }
+  #stat b { color: var(--txt); font-weight: 500; }
+  #caveat { font-size: 10px; color: #c9a06a; line-height: 1.55; margin-top: 12px;
+    padding: 9px 10px; border: 1px solid #3a2f1e; border-radius: 6px;
+    background: rgba(201,160,106,0.06); }
+
+  /* ---- tooltip ---- */
+  #tip { position: absolute; pointer-events: none; display: none; z-index: 50;
+    background: rgba(15,17,23,0.97); border: 1px solid #3a3a46; border-radius: 6px;
+    padding: 9px 12px; font-size: 12px; max-width: 280px; line-height: 1.5;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.6); }
+  #tip h3 { margin: 0 0 3px; font-size: 13px; color: var(--white); }
+  #tip .r { color: #8a8a96; }
+
+  /* ---- detail drawer ---- */
+  #drawer { position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+    background: var(--panel); border-left: 1px solid var(--line); padding: 24px 24px 40px;
+    overflow-y: auto; transform: translateX(100%); transition: transform .18s ease;
+    box-shadow: -8px 0 30px rgba(0,0,0,.4); z-index: 10; }
+  #drawer.open { transform: translateX(0); }
+  #drawer h2 { font-size: 18px; color: var(--white); margin: 0 0 2px; }
+  #drawer .ds { font-size: 12px; color: var(--dim); margin-bottom: 16px; }
+  #drawer .row { display: flex; gap: 10px; font-size: 12px; margin-bottom: 7px; line-height: 1.5; }
+  #drawer .k { color: var(--dim2); width: 84px; flex-shrink: 0;
+    text-transform: uppercase; font-size: 9px; letter-spacing: .8px; padding-top: 2px; }
+  #drawer .v { color: var(--txt); }
+  .pill { display: inline-block; font-size: 9px; letter-spacing: .4px; padding: 1px 6px;
+    border-radius: 4px; margin-right: 4px; text-transform: uppercase; }
+  .p-doc { background: rgba(127,178,232,.15); color: var(--found); }
+  .p-inf { background: rgba(201,143,214,.15); color: var(--inferred); }
+  .p-wk  { background: rgba(127,214,168,.15); color: var(--lc); }
+  .cnt { color: var(--dim2); font-variant-numeric: tabular-nums; }
+  #nbrs { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .nbr { display: flex; align-items: baseline; gap: 8px; padding: 5px 0;
+    font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--line2); }
+  .nbr:hover .nm { color: var(--white); }
+  .nbr .nm { color: var(--txt); flex: 1; }
+  .nbr .via { color: var(--dim2); font-size: 10px; text-align: right; max-width: 150px; }
+  .nbr .w { color: var(--dim2); font-size: 10px; font-variant-numeric: tabular-nums; }
+  #close { position: absolute; top: 16px; right: 18px; color: var(--dim2);
+    font-size: 20px; cursor: pointer; line-height: 1; }
+  #close:hover { color: var(--white); }
+  /* ---- community roster (right, behind the detail drawer) ---- */
+  #roster { position: fixed; top: 0; right: 0; width: 322px; height: 100vh;
+    background: var(--panel); border-left: 1px solid var(--line); padding: 22px 20px 40px;
+    overflow-y: auto; transform: translateX(100%); transition: transform .18s ease; z-index: 6; }
+  #roster.open { transform: translateX(0); }
+  #roster h2 { font-size: 15px; color: var(--white); margin: 0 0 2px; }
+  #roster .ds { font-size: 11px; color: var(--dim); margin-bottom: 14px; }
+  .rrow { display: flex; align-items: baseline; gap: 8px; padding: 6px 0;
+    font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--line2); }
+  .rrow:hover .nm { color: var(--white); }
+  .rrow .nm { color: var(--txt); flex: 1; }
+  .rrow .rl { color: var(--dim2); font-size: 10px; max-width: 110px; text-align: right;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rrow .fol { color: var(--dim); font-size: 10px; font-variant-numeric: tabular-nums;
+    min-width: 26px; text-align: right; }
+  #err { padding: 40px 40px 40px 320px; color: #e88; font-size: 13px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<svg id="canvas"></svg>
+<div id="tip"></div>
+<div id="err" style="display:none"></div>
+
+<div id="panel">
+  <h1>DeLillo — correspondents network</h1>
+  <div class="sub">The scoped analytical graph: identified, giant-component
+    correspondents. <b>Node size = archive presence</b> (HRC folder count), the
+    documentary footprint — not link count. Communities computed offline (Leiden,
+    seeded); the layout settles live from offline seeds — drag nodes, scroll to zoom.
+    <a href="catalog.html">catalog →</a></div>
+
+  <div class="sec">Search</div>
+  <input id="search" type="text" placeholder="name…" autocomplete="off">
+
+  <div class="sec">Edge tiers</div>
+  <label class="toggle"><input type="radio" name="mode" value="field" checked>
+    <span>Field view — <span style="color:var(--found)">found</span> +
+    <span style="color:var(--inferred)">inferred</span></span></label>
+  <label class="toggle"><input type="radio" name="mode" value="found">
+    <span>Found only — the documented skeleton</span></label>
+  <div class="hint">Tiers are not commensurable: documented evidence vs our own
+    projections (<span style="color:var(--inferred)">via</span> shared houses,
+    journals, institutions). Colours = Leiden communities of the active tier set.</div>
+
+  <div class="sec">Communities</div>
+  <div id="legend"></div>
+  <div class="hint">Click a community to highlight it (dims the rest). Stackable.</div>
+  <button id="viewall" disabled>View all</button>
+
+  <div class="sec">Overlay</div>
+  <label class="toggle"><input type="checkbox" id="f-workshop">
+    <span style="color:var(--lc)">Workshop cohorts</span> <span class="cnt" id="c-wk"></span></label>
+  <label class="toggle"><input type="checkbox" id="f-lineage">
+    <span style="color:var(--lc)">+ same-program lineage</span> <span class="cnt" id="c-lin"></span></label>
+  <div class="hint">§6.3a creative-writing program ties, externally curated. Solid =
+    <b>cohort</b> (same program, overlapping years — "were there together"); dotted
+    & fading = <b>lineage</b> (same program, different cohorts — fainter the further
+    apart). A labelled <span style="color:var(--lc)">overlay</span>, not in the
+    partition — and it <b>skews to famous writers</b>, so it's silent on the working
+    editors/agents.</div>
+
+  <div id="stat"></div>
+  <div id="caveat"></div>
+</div>
+
+<div id="roster"><div id="rhead"></div><div id="rlist"></div></div>
+<div id="drawer"><div id="close">×</div><div id="dbody"></div></div>
+
+<script>
+const svg = d3.select("#canvas");
+const W = innerWidth, H = innerHeight;
+svg.attr("width", W).attr("height", H);
+
+// faint centre glow — atmosphere, not decoration
+const defs = svg.append("defs");
+const grad = defs.append("radialGradient").attr("id", "glow").attr("r", "55%");
+grad.append("stop").attr("offset", "0%").attr("stop-color", "#1a1e2c");
+grad.append("stop").attr("offset", "100%").attr("stop-color", "#0f1117");
+svg.append("rect").attr("width", W).attr("height", H).attr("fill", "url(#glow)");
+
+const vp = svg.append("g");
+const gInf = vp.append("g"), gDoc = vp.append("g"), gLin = vp.append("g"),
+      gWk = vp.append("g"), gNd = vp.append("g"), gLbl = vp.append("g");
+
+const PAL = ["#7fb2e8","#c98fd6","#7fd6a8","#e8c27f","#e88f8f","#8fd6d2",
+             "#a8a0e8","#d6c98f","#e8a0c0","#9fcf6f","#e8b07f","#7f9fe8",
+             "#d68fb2","#b2d67f","#8fc0e8","#cfd68f"];
+const color = c => c == null ? "#3a3d49" : PAL[c % PAL.length];
+
+let NET, CAT = new Map(), nodes = [], byId = new Map();
+let docLinks = [], infLinks = [], wkLinks = [], linLinks = [];
+let wkAdj = new Map();        // id -> [{other, via, evidence}] for the workshop overlay
+let linAdj = new Map();       // id -> [...] for the lineage overlay (same program, diff years)
+let showWorkshop = false, showLineage = false;
+let mode = "field", selected = null, focused = new Set();
+let adj = new Map();   // id -> [{other, tier, weight, via, relations}]
+let sim;
+let archCache = new Map();   // id -> HRC folder_count (the archive-presence signal)
+let labelOrder = [];         // nodes sorted by archive presence; how many show scales with zoom
+
+const PANEL_W = 270;
+const S = Math.min(W - PANEL_W, H) * 0.46;   // offline seed [-1,1] -> screen
+const CX = PANEL_W + (W - PANEL_W) / 2;
+
+const zoom = d3.zoom().scaleExtent([0.35, 9]).on("zoom", ev => {
+  vp.attr("transform", ev.transform);
+  renderLabels();   // reveal more labels as you zoom in
+});
+svg.call(zoom);
+
+function esc(s){ return (s ?? "").toString().replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+const comm = n => mode === "field" ? n.community_field : n.community_found;
+const activeLinks = () => mode === "field" ? docLinks.concat(infLinks) : docLinks;
+
+function degrees(){
+  const d = new Map(nodes.map(n => [n.id, 0]));
+  for (const e of activeLinks()){
+    d.set(e.source_id, d.get(e.source_id) + 1);
+    d.set(e.target_id, d.get(e.target_id) + 1);
+  }
+  return d;
+}
+// node radius = ARCHIVE PRESENCE (HRC folder count), NOT degree.
+// degree is inferred-dominated (1450 inf vs 238 doc); sizing by it would re-encode
+// the LOD/publicity skew the rebuild refuses. Folders = documentary footprint.
+const rOf = n => 2.4 + 2.1 * Math.sqrt(archCache.get(n.id) ?? 1);
+
+// ---- the simulation: live physics, seeded from the offline layout ----
+// Forces are kept deliberately weak: the offline Leiden layout is authoritative
+// for geometry (loaded as seeds), so the sim only relaxes overlaps + adds drag,
+// then cools to REST (alphaMin) so hover/labels aren't chasing a moving target.
+function makeSim(){
+  sim = d3.forceSimulation(nodes)
+    .alphaDecay(0.028).velocityDecay(0.5).alphaMin(0.012)
+    .force("link", d3.forceLink(activeLinks()).id(n => n.id)
+      .distance(72)
+      .strength(e => e.tier === "documented" ? 0.22
+                                             : Math.min(0.02 + 0.10 * e.weight, 0.22)))
+    .force("charge", d3.forceManyBody().strength(-42).distanceMax(360))
+    .force("collide", d3.forceCollide(n => rOf(n) + 2).strength(0.85))
+    .force("x", d3.forceX(CX).strength(0.028))
+    .force("y", d3.forceY(H / 2).strength(0.030))
+    .on("tick", tick);
+}
+
+let degCache = new Map();
+function tick(){
+  gDoc.selectAll("line")
+    .attr("x1", l => l.source.x).attr("y1", l => l.source.y)
+    .attr("x2", l => l.target.x).attr("y2", l => l.target.y);
+  gInf.selectAll("line")
+    .attr("x1", l => l.source.x).attr("y1", l => l.source.y)
+    .attr("x2", l => l.target.x).attr("y2", l => l.target.y);
+  gWk.selectAll("line")
+    .attr("x1", l => l.source.x).attr("y1", l => l.source.y)
+    .attr("x2", l => l.target.x).attr("y2", l => l.target.y);
+  gLin.selectAll("line")
+    .attr("x1", l => l.source.x).attr("y1", l => l.source.y)
+    .attr("x2", l => l.target.x).attr("y2", l => l.target.y);
+  gNd.selectAll("circle").attr("cx", n => n.x).attr("cy", n => n.y);
+  gLbl.selectAll("text")
+    .attr("x", n => n.x + rOf(n) + 2.5)
+    .attr("y", n => n.y + 3);
+}
+
+const drag = d3.drag()
+  .on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(0.22).restart();
+                            d.fx = d.x; d.fy = d.y; })
+  .on("drag",  (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+  .on("end",   (ev, d) => { if (!ev.active) sim.alphaTarget(0);
+                            d.fx = null; d.fy = null; });
+
+// ---- render (structure; sim moves it) ----
+function buildAdj(){
+  adj = new Map(nodes.map(n => [n.id, []]));
+  for (const e of NET.documented.concat(NET.inferred)){
+    adj.get(e.source_id).push({other: e.target_id, ...e});
+    adj.get(e.target_id).push({other: e.source_id, ...e});
+  }
+  wkAdj = new Map(nodes.map(n => [n.id, []]));
+  for (const e of NET.workshop || []){
+    wkAdj.get(e.source_id).push({other: e.target_id, via: e.via, evidence: e.evidence});
+    wkAdj.get(e.target_id).push({other: e.source_id, via: e.via, evidence: e.evidence});
+  }
+  linAdj = new Map(nodes.map(n => [n.id, []]));
+  for (const e of NET.lineage || []){
+    linAdj.get(e.source_id).push({other: e.target_id, via: e.via, evidence: e.evidence});
+    linAdj.get(e.target_id).push({other: e.source_id, via: e.via, evidence: e.evidence});
+  }
+}
+
+function drawWorkshop(){
+  gWk.selectAll("line").data(showWorkshop ? wkLinks : [], l => l.source_id+"|"+l.target_id)
+    .join("line").attr("class","wk");
+  gLin.selectAll("line").data(showLineage ? linLinks : [], l => l.source_id+"|"+l.target_id)
+    .join("line").attr("class","lin")
+    .attr("stroke-opacity", l => 0.12 + 0.55 * l.weight);   // graded by year-gap
+  tick();
+}
+
+function drawEdges(){
+  gInf.selectAll("line").data(mode === "field" ? infLinks : [], l => l.source_id+"|"+l.target_id)
+    .join("line").attr("class","lk")
+    .attr("stroke", "var(--inferred)")
+    .attr("stroke-width", l => Math.min(0.35 + 0.7 * l.weight, 2.2))
+    .attr("stroke-opacity", l => 0.10 + 0.25 * Math.min(l.weight, 1));
+  gDoc.selectAll("line").data(docLinks, l => l.source_id+"|"+l.target_id)
+    .join("line").attr("class","lk")
+    .attr("stroke", "var(--found)")
+    .attr("stroke-width", l => Math.min(0.6 + 0.45 * l.weight, 2.8))
+    .attr("stroke-opacity", 0.45);
+}
+
+function drawNodes(){
+  degCache = degrees();   // still computed — degree lives in the tooltip/drawer, not in size
+  gNd.selectAll("circle").data(nodes, n => n.id).join("circle")
+    .attr("class","nd")
+    .attr("r", n => rOf(n))
+    .attr("fill", n => color(comm(n)))
+    .call(drag)
+    .on("mouseenter", (ev,n) => tip(ev, n))    // hover = tooltip only, no dimming
+    .on("mousemove", (ev,n) => tip(ev, n))
+    .on("mouseleave", () => d3.select("#tip").style("display","none"))
+    .on("click", (ev,n) => select(n.id));      // click = select + ego-network highlight
+
+  // label priority = archive presence (same signal as size); how MANY show scales with zoom
+  labelOrder = nodes.slice()
+    .sort((a,b) => (archCache.get(b.id) ?? 1) - (archCache.get(a.id) ?? 1));
+  applyFocus();
+  renderLabels();
+  tick();
+}
+
+// ~30 labels at default zoom; reveal progressively more (up to all) as you zoom in
+function labelCount(k){ return Math.min(nodes.length, Math.round(30 * Math.max(1, k))); }
+
+function renderLabels(){
+  const k = d3.zoomTransform(svg.node()).k;
+  const show = labelOrder.slice(0, labelCount(k));
+  const sel = gLbl.selectAll("text").data(show, n => n.id).join("text")
+    .attr("class","lbl").attr("font-size", 9 / Math.sqrt(k))
+    .text(n => n.display_name)
+    .attr("x", n => n.x + rOf(n) + 2.5).attr("y", n => n.y + 3);
+  // apply the current dim state to the (possibly new) label set, computed once
+  let dim;
+  if (selected && byId.has(selected)){ const nb = egoSet(selected); dim = n => !nb.has(n.id); }
+  else if (focused.size){ dim = n => !focused.has(comm(n)); }
+  else { dim = () => false; }
+  sel.classed("dimmed", dim);
+}
+
+// the node + its visible-tier neighbours
+function egoSet(id){
+  const s = new Set(adj.get(id).filter(e => mode === "field" || e.tier === "documented")
+                               .map(e => e.other));
+  s.add(id); return s;
+}
+
+// ego-network highlight — now driven by CLICK (via select), not hover
+function neighborHighlight(n, on){
+  if (!on){ gNd.selectAll("circle").classed("dimmed", false);
+            gDoc.selectAll("line").classed("dimmed", false);
+            gInf.selectAll("line").classed("dimmed", false);
+            gLbl.selectAll("text").classed("dimmed", false); applyFocus(); return; }
+  const nb = egoSet(n.id);
+  gNd.selectAll("circle").classed("dimmed", m => !nb.has(m.id));
+  gLbl.selectAll("text").classed("dimmed", m => !nb.has(m.id));
+  const touch = l => l.source_id === n.id || l.target_id === n.id;
+  gDoc.selectAll("line").classed("dimmed", l => !touch(l));
+  gInf.selectAll("line").classed("dimmed", l => !touch(l));
+}
+
+// clicking a legend row HIGHLIGHTS its community (dims the rest) — not hide.
+function applyFocus(){
+  if (!focused.size){
+    gNd.selectAll("circle").classed("dimmed", false);
+    gLbl.selectAll("text").classed("dimmed", false);
+    gDoc.selectAll("line").classed("dimmed", false);
+    gInf.selectAll("line").classed("dimmed", false); return;
+  }
+  const inF = n => focused.has(comm(n));
+  gNd.selectAll("circle").classed("dimmed", n => !inF(n));
+  gLbl.selectAll("text").classed("dimmed", n => !inF(n));
+  const evis = l => inF(byId.get(l.source_id)) && inF(byId.get(l.target_id));
+  gDoc.selectAll("line").classed("dimmed", l => !evis(l));
+  gInf.selectAll("line").classed("dimmed", l => !evis(l));
+}
+
+function tip(ev, n){
+  const c = comm(n), fol = archCache.get(n.id) ?? 1;
+  d3.select("#tip").style("display","block")
+    .style("left", Math.min(ev.pageX + 14, W - 290) + "px")
+    .style("top", (ev.pageY + 10) + "px")
+    .html(`<h3>${esc(n.display_name)}</h3>
+      <div class="r">${esc(n.roles.join(", ")) || "—"} · ${fol} HRC folder${fol === 1 ? "" : "s"} · ${degCache.get(n.id)} tie(s)
+      ${c != null ? ` · <span style="color:${color(c)}">C${c}</span>` : " · outside found skeleton"}</div>`);
+}
+
+// ---- legend: labels DERIVED from data, never hardcoded ----
+function legend(){
+  const groups = d3.group(nodes.filter(n => comm(n) != null), comm);
+  const rows = [...groups.entries()].sort((a,b) => b[1].length - a[1].length);
+  const label = (c, members) => {
+    if (mode === "field"){
+      const vias = new Map();
+      const ids = new Set(members.map(m => m.id));
+      for (const e of NET.inferred)
+        if (ids.has(e.source_id) && ids.has(e.target_id) &&
+            comm(byId.get(e.source_id)) === c && comm(byId.get(e.target_id)) === c)
+          for (const v of e.via) vias.set(v, (vias.get(v)||0) + 1);
+      return [...vias.entries()].sort((a,b) => b[1]-a[1]).slice(0,2).map(d => d[0]).join(" · ");
+    }
+    return members.sort((a,b) => degCache.get(b.id)-degCache.get(a.id)).slice(0,2)
+                  .map(m => m.display_name.split(" ").pop()).join(" · ");
+  };
+  d3.select("#legend").html(rows.map(([c, ms]) =>
+    `<div class="legend-row ${focused.size ? (focused.has(c) ? "on" : "off") : ""}" data-c="${c}">
+       <span class="dot" style="background:${color(c)}"></span>
+       <span class="n">${ms.length}</span>
+       <span class="via">${esc(label(c, ms))}</span></div>`).join(""));
+  d3.selectAll(".legend-row").on("click", function(){
+    const c = +this.dataset.c;
+    focused.has(c) ? focused.delete(c) : focused.add(c);
+    legend(); applyFocus();
+  });
+  document.getElementById("viewall").disabled = focused.size === 0;
+  renderRoster();
+}
+
+// ---- community roster: catalogue-style member list for the highlighted set ----
+function renderRoster(){
+  const roster = document.getElementById("roster");
+  if (!focused.size){ roster.classList.remove("open"); return; }
+  const members = nodes.filter(n => focused.has(comm(n)))
+    .sort((a,b) => (archCache.get(b.id) ?? 1) - (archCache.get(a.id) ?? 1));
+  const cs = [...focused].sort((a,b) => a - b);
+  document.getElementById("rhead").innerHTML =
+    `<h2>${members.length} member${members.length === 1 ? "" : "s"}</h2>
+     <div class="ds">${cs.map(c => `<span style="color:${color(c)}">C${c}</span>`).join(" · ")} ·
+       highlighted commun${cs.length === 1 ? "ity" : "ities"} · sorted by archive presence</div>`;
+  document.getElementById("rlist").innerHTML = members.map(n => {
+    const fol = archCache.get(n.id) ?? 1, c = comm(n);
+    return `<div class="rrow" data-id="${esc(n.id)}">
+      <span class="dot" style="background:${color(c)}"></span>
+      <span class="nm">${esc(n.display_name)}</span>
+      <span class="rl">${esc(n.roles[0] || "")}</span>
+      <span class="fol">${fol}f</span></div>`;
+  }).join("");
+  roster.classList.add("open");
+  document.querySelectorAll(".rrow").forEach(el =>
+    el.addEventListener("click", () => select(el.dataset.id, true)));
+}
+
+function stats(){
+  const a = NET.meta.analysis, m = mode === "field" ? a.field : a.found, c = NET.meta.counts;
+  d3.select("#stat").html(
+    `<b>${c.nodes}</b> nodes · <b>${c.documented}</b> documented + <b>${c.inferred}</b> inferred<br>
+     active set: <b>${m.communities}</b> communities over <b>${m.covered_nodes}</b> nodes,
+     Q=<b>${m.modularity}</b><br>
+     communities offline (Leiden, seed ${a.seed}); layout live from offline seeds`);
+  const s = a.sensitivity_surface_area;
+  d3.select("#caveat").html(
+    `<b>§6.6a caveat</b> — flattening the curated surface-area scores moves
+     ${(s.share_nodes_moved*100).toFixed(0)}% of nodes (ARI ${s.ari_vs_baseline}):
+     the field partition partly reflects our weighting choices, not only the record.`);
+}
+
+// ---- selection / drawer (joined with the catalog record) ----
+function select(id, center){
+  selected = id;
+  gNd.selectAll("circle").classed("sel", n => n.id === id);
+  neighborHighlight(byId.get(id), true);   // ego-network highlight on select
+  const n = byId.get(id), r = CAT.get(id);
+  if (center){
+    const t = d3.zoomIdentity.translate(CX - n.x*1.8, H/2 - n.y*1.8).scale(1.8);
+    svg.transition().duration(450).call(zoom.transform, t);
+  }
+  const rows = [];
+  const add = (k,v) => { if (v) rows.push(`<div class="row"><div class="k">${k}</div><div class="v">${v}</div></div>`); };
+  const life = n.life && [n.life.birth, n.life.death].some(x => x != null)
+    ? `${n.life.birth ?? "?"}–${n.life.death ?? ""}` : "";
+  add("Life", life);
+  add("Roles", n.roles.map(esc).join(", "));
+  add("Communities", `field <span style="color:${color(n.community_field)}">C${n.community_field}</span>` +
+      (n.community_found != null ? ` · found <span style="color:${color(n.community_found)}">C${n.community_found}</span>` : " · — found"));
+  if (r) add("Affiliations", r.affiliations.map(a => esc(a.name)).join("<br>"));
+  if (r) add("HRC", `${r.hrc.box_count} box(es), ${r.hrc.folder_count} folder(s)`);
+  if (n.programs && n.programs.length){
+    const g = {};
+    for (const p of n.programs){
+      (g[p.program] ||= {roles: new Set(), lo: Infinity, hi: 0});
+      g[p.program].roles.add(p.role);
+      if (p.start) g[p.program].lo = Math.min(g[p.program].lo, p.start);
+      if (p.end)   g[p.program].hi = Math.max(g[p.program].hi, p.end);
+    }
+    add("Creative writing", Object.entries(g).map(([prog, d]) =>
+      `${esc(prog)} <span style="color:var(--dim2)">${[...d.roles].join("/")}${
+        d.hi ? " · " + (d.lo === d.hi ? d.lo : d.lo + "–" + d.hi) : ""}</span>`).join("<br>"));
+  }
+  add("Record", `<a href="catalog.html?id=${encodeURIComponent(id)}">open catalog record →</a>`);
+
+  const nbrs = adj.get(id)
+    .filter(e => mode === "field" || e.tier === "documented")
+    .sort((a,b) => (a.tier === b.tier) ? b.weight - a.weight : (a.tier === "documented" ? -1 : 1))
+    .map(e => `<div class="nbr" data-id="${esc(e.other)}">
+        <span class="pill ${e.tier === "documented" ? "p-doc" : "p-inf"}">${e.tier === "documented" ? "doc" : "inf"}</span>
+        <span class="nm">${esc(byId.get(e.other).display_name)}</span>
+        <span class="via">${esc(e.tier === "documented" ? e.relations.join(", ") : e.via.slice(0,2).join(", "))}</span>
+        <span class="w">${e.weight.toFixed(2)}</span></div>`).join("");
+  const wk = (wkAdj.get(id) || []).map(e => `<div class="nbr" data-id="${esc(e.other)}">
+        <span class="pill p-wk">workshop</span>
+        <span class="nm">${esc(byId.get(e.other).display_name)}</span>
+        <span class="via">${esc((e.evidence && e.evidence[0]) || e.via.join(", "))}</span></div>`).join("");
+  const wkSec = wk
+    ? `<div id="nbrs"><div class="sec" style="margin:0 0 8px">Workshop cohort (§6.3a)</div>${wk}</div>` : "";
+  const lin = (linAdj.get(id) || []).map(e => `<div class="nbr" data-id="${esc(e.other)}">
+        <span class="pill p-wk">lineage</span>
+        <span class="nm">${esc(byId.get(e.other).display_name)}</span>
+        <span class="via">${esc((e.evidence && e.evidence[0]) || e.via.join(", "))}</span></div>`).join("");
+  const linSec = lin
+    ? `<div id="nbrs"><div class="sec" style="margin:0 0 8px">Same program, different years</div>${lin}</div>` : "";
+  document.getElementById("dbody").innerHTML =
+    `<h2>${esc(n.display_name)}</h2>
+     <div class="ds">${adj.get(id).length} tie(s) across both tiers</div>
+     ${rows.join("")}<div id="nbrs">${nbrs}</div>${wkSec}${linSec}`;
+  document.getElementById("drawer").classList.add("open");
+  document.querySelectorAll(".nbr").forEach(el =>
+    el.addEventListener("click", () => select(el.dataset.id, true)));
+}
+
+// ---- wiring ----
+d3.selectAll("input[name=mode]").on("change", function(){
+  mode = this.value; focused.clear();
+  document.getElementById("viewall").disabled = true;
+  drawEdges(); drawNodes(); legend(); stats();
+  sim.force("link").links(activeLinks());
+  sim.force("collide", d3.forceCollide(n => rOf(n) + 2).strength(0.85));
+  sim.alpha(0.5).restart();
+  if (selected) select(selected);
+});
+document.getElementById("search").addEventListener("input", e => {
+  const q = e.target.value.toLowerCase();
+  gLbl.selectAll("text").attr("fill", n =>
+    q && n.display_name.toLowerCase().includes(q) ? "#fff" : "#b9b9c4");
+  if (q) gNd.selectAll("circle").classed("dimmed", n => !n.display_name.toLowerCase().includes(q));
+  else applyFocus();   // clearing search restores any active community highlight
+});
+document.getElementById("search").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const q = e.target.value.toLowerCase();
+  const hit = nodes.find(n => n.display_name.toLowerCase().includes(q));
+  if (hit) select(hit.id, true);
+});
+document.getElementById("viewall").addEventListener("click", () => {
+  focused.clear(); legend(); applyFocus();
+});
+document.getElementById("f-workshop").addEventListener("change", e => {
+  showWorkshop = e.target.checked; drawWorkshop();
+});
+document.getElementById("f-lineage").addEventListener("change", e => {
+  showLineage = e.target.checked; drawWorkshop();
+});
+document.getElementById("close").addEventListener("click", () => {
+  document.getElementById("drawer").classList.remove("open");
+  selected = null; gNd.selectAll("circle").classed("sel", false);
+  neighborHighlight(null, false);   // clear ego dim, restore any community highlight
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.getElementById("close").click();
+});
+
+// ---- load both artifacts ----
+Promise.all([
+  fetch("../data/build/network.json").then(r => { if (!r.ok) throw new Error("network.json " + r.status); return r.json(); }),
+  fetch("../data/build/catalog.json").then(r => { if (!r.ok) throw new Error("catalog.json " + r.status); return r.json(); }),
+]).then(([net, cat]) => {
+  NET = net; nodes = net.nodes;
+  // offline layout positions become the simulation's seeds
+  for (const n of nodes){ n.x = CX + n.x * S; n.y = H/2 + n.y * S; }
+  byId = new Map(nodes.map(n => [n.id, n]));
+  CAT = new Map(cat.map(r => [r.id, r]));
+  // archive presence (HRC folder count), joined from the catalog record → drives size + labels
+  archCache = new Map(nodes.map(n => [n.id, CAT.get(n.id)?.hrc?.folder_count ?? 1]));
+  docLinks = net.documented.map(e => ({...e, source: e.source_id, target: e.target_id}));
+  infLinks = net.inferred.map(e => ({...e, source: e.source_id, target: e.target_id}));
+  // workshop overlay is NOT in the sim; bind its endpoints to node objects directly
+  wkLinks = (net.workshop || []).map(e => ({...e, source: byId.get(e.source_id), target: byId.get(e.target_id)}));
+  linLinks = (net.lineage || []).map(e => ({...e, source: byId.get(e.source_id), target: byId.get(e.target_id)}));
+  document.getElementById("c-wk").textContent = wkLinks.length;
+  document.getElementById("c-lin").textContent = linLinks.length;
+  buildAdj(); drawEdges(); drawNodes(); legend(); stats(); makeSim(); drawWorkshop();
+  const want = new URLSearchParams(location.search).get("id");
+  if (want && byId.has(want)){
+    select(want, false);   // open the drawer immediately…
+    // …but recenter only once the sim has settled, so the target doesn't drift off-screen
+    sim.on("end.center", () => { select(want, true); sim.on("end.center", null); });
+  }
+}).catch(err => {
+  const el = document.getElementById("err");
+  el.style.display = "block";
+  el.innerHTML = `Could not load build artifacts (${esc(err.message)}).<br><br>
+    Build them: <code>PYTHONPATH=src uv run python -m delillo.pipeline</code><br>
+    Serve from the repo root: <code>python -m http.server 8000</code>,
+    then open <code>/viz/network.html</code>.`;
+});
+</script>
+</body>
+</html>
