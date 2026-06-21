@@ -97,8 +97,6 @@
     <span class="cnt" id="c-ident"></span></label>
   <label class="toggle"><input type="checkbox" id="f-roles"> Has role
     <span class="cnt" id="c-roles"></span></label>
-  <label class="toggle"><input type="checkbox" id="f-review"> Needs review
-    <span class="cnt" id="c-review"></span></label>
   <label class="toggle"><input type="checkbox" id="f-net"> In network
     <span class="cnt" id="c-net"></span></label>
 
@@ -141,7 +139,6 @@ function idPills(r){
   if (r.identifiers.snac_ark) p.push('<span class="pill id-snac">snac</span>');
   if (r.identifiers.lc)       p.push('<span class="pill id-lc">lc</span>');
   if (r.identifiers.wikidata) p.push('<span class="pill id-wd">wd</span>');
-  if (r.review_needed)        p.push('<span class="pill review">review</span>');
   return p.join("");
 }
 function sortVal(r){
@@ -158,7 +155,6 @@ function applyFilters(){
     if (q && !(r.display_name.toLowerCase().includes(q) || r.sort_name.toLowerCase().includes(q))) return false;
     if (F.ident && !r.identified) return false;
     if (F.roles && !r.roles.length) return false;
-    if (F.review && !r.review_needed) return false;
     if (F.net && !r.in_network) return false;
     if (F.subs.size && !r.hrc.subseries.some(s => F.subs.has(s))) return false;
     return true;
@@ -210,7 +206,7 @@ function openDrawer(r){
   const desc = r.description ? `<div class="biog">${esc(r.description)}</div>` : "";
   const biog = r.biog_hist ? `<div class="biog">${esc(r.biog_hist)}</div>` : "";
   document.getElementById("dbody").innerHTML =
-    `<h2>${esc(r.display_name)}</h2><div class="ds">${r.identified ? "identified" : "unidentified"}${r.review_needed ? " · flagged for review" : ""}</div>${rows.join("")}${desc}${biog}`;
+    `<h2>${esc(r.display_name)}</h2><div class="ds">${r.identified ? "identified" : "unidentified"}</div>${rows.join("")}${desc}${biog}`;
   document.getElementById("drawer").classList.add("open");
 }
 
@@ -220,7 +216,6 @@ function esc(s){ return (s ?? "").toString().replace(/[&<>"]/g, c => ({'&':'&amp
 document.getElementById("search").addEventListener("input", e => { F.q = e.target.value; applyFilters(); });
 document.getElementById("f-ident").addEventListener("change", e => { F.ident = e.target.checked; applyFilters(); });
 document.getElementById("f-roles").addEventListener("change", e => { F.roles = e.target.checked; applyFilters(); });
-document.getElementById("f-review").addEventListener("change", e => { F.review = e.target.checked; applyFilters(); });
 document.getElementById("f-net").addEventListener("change", e => { F.net = e.target.checked; applyFilters(); });
 document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => {
   const k = th.dataset.k;
@@ -244,7 +239,6 @@ fetch("../data/build/catalog.json")
     const by = (f) => DATA.filter(f).length;
     document.getElementById("c-ident").textContent = by(r => r.identified);
     document.getElementById("c-roles").textContent = by(r => r.roles.length);
-    document.getElementById("c-review").textContent = by(r => r.review_needed);
     document.getElementById("c-net").textContent = by(r => r.in_network);
     // subseries filters, by frequency
     const counts = {};
