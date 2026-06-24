@@ -87,7 +87,7 @@
   <h1>DeLillo — corresondents catalog</h1>
   <div class="sub">Every correspondent in the HRC archive — the documentary record.
     The isolated/unidentified tail lives here as rows, not graph nodes.
-    <a href="network.html">network →</a></div>
+    <a href="./">network →</a></div>
 
   <div class="sec">Search</div>
   <input id="search" type="text" placeholder="name…" autocomplete="off">
@@ -202,7 +202,7 @@ function openDrawer(r){
     ? `${esc(r.hrc.first_date)}–${esc(r.hrc.last_date)} <span class="sub-tag">(dated correspondence folders)</span>` : "";
   add("Correspondence", corr);
   add("Subseries", r.hrc.subseries.map(s => SUB_LABEL[s] || s).join(", "));
-  if (r.in_network) add("Network", `<a href="network.html?id=${encodeURIComponent(r.id)}">view in network →</a>`);
+  if (r.in_network) add("Network", `<a href="./?id=${encodeURIComponent(r.id)}">view in network →</a>`);
   const desc = r.description ? `<div class="biog">${esc(r.description)}</div>` : "";
   const biog = r.biog_hist ? `<div class="biog">${esc(r.biog_hist)}</div>` : "";
   document.getElementById("dbody").innerHTML =
@@ -232,7 +232,7 @@ document.getElementById("close").addEventListener("click", () => document.getEle
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("drawer").classList.remove("open"); });
 
 // ---- load ----
-fetch("../data/build/catalog.json")
+fetch("data/build/catalog.json")
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then(d => {
     DATA = d;
