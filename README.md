@@ -7,10 +7,10 @@ maintained privately.
 
 **Live:** https://krmuth.github.io/delillo-net/
 
-- **Network view** — identified, connected correspondents (259 nodes); edges are
+- **Network view**: identified, connected correspondents (259 nodes); edges are
   tiered (documented vs inferred) and `via`-tagged; communities from Leiden; layout
   baked offline.
-- **Catalog view** — the full correspondent catalog, cross-linked with the network.
+- **Catalog view**: the full correspondent catalog, cross-linked with the network.
 
 ## Data & provenance
 
