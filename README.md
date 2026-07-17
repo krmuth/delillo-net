@@ -1,11 +1,11 @@
-# DeLillo Correspondence Network — interactive viz
+# DeLillo Correspondence Network
 
-A scoped, validated map of the correspondence in Don DeLillo's papers at the Harry
+A network map of the LOD-bearing correspondence in Don DeLillo's papers at the Harry
 Ransom Center (HRC). This repository hosts **only the published visualization** and
 the sanitized data it needs; the research pipeline, sources, and working notes are
 maintained privately.
 
-**Live:** https://krmuth.github.io/delillo-viz/
+**Live:** https://krmuth.github.io/delillo-net/
 
 - **Network view** — identified, connected correspondents (259 nodes); edges are
   tiered (documented vs inferred) and `via`-tagged; communities from Leiden; layout
